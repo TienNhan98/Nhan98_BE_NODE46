@@ -10,6 +10,7 @@ import cors from "cors";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import prisma from "./src/common/prisma/init.prisma.js";
+import initSocket from "./src/common/socket/init.socket.js";
 
 const app = express();
 
@@ -18,73 +19,79 @@ app.use(express.json());
 
 app.use(cors({ origin: ["http://localhost:5173", "google.com"] }));
 
+// định hình đường dẫn
+app.use(express.static("."));
+
 app.use(rootRouter);
 
 app.use(handleError);
 
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  /* options */
-});
 
-io.on("connection", (socket) => {
-  console.log(`id: ${socket.id}`);
+initSocket(httpServer);
+// const io = new Server(httpServer, {
+//   /* options */
+// });
 
-  socket.on("join-room", (data) => {
-    console.log("📢 [sever.js:34]", data);
-    const { user_id_sender, user_id_recipient } = data;
-    // tạo roomID: sắp xếp 2 id lại với nhau
-    const roomId = [user_id_sender, user_id_recipient]
-      .sort((a, b) => a - b)
-      .join("_");
+// Đã chuyển sang initSocket
+// io.on("connection", (socket) => {
+//   console.log(`id: ${socket.id}`);
 
-    // Đảm bảo thoát hết room trước khi join room
-    socket.rooms.forEach((roomId) => {
-      socket.leave(roomId);
-    });
-    socket.join(roomId);
-  });
+//   socket.on("join-room", (data) => {
+//     console.log("📢 [sever.js:34]", data);
+//     const { user_id_sender, user_id_recipient } = data;
+//     // tạo roomID: sắp xếp 2 id lại với nhau
+//     const roomId = [user_id_sender, user_id_recipient]
+//       .sort((a, b) => a - b)
+//       .join("_");
 
-  socket.on("send-message", async (data) => {
-    console.log({ data });
-    const { message, user_id_sender, user_id_recipient } = data;
-    const roomId = [user_id_sender, user_id_recipient]
-      .sort((a, b) => a - b)
-      .join("_");
-    io.to(roomId).emit("receive-message", data);
-    await prisma.chats.create({
-      data: {
-        message: message,
-        user_id_sender: user_id_sender,
-        user_id_recipient: user_id_recipient,
-      },
-    });
-  });
+//     // Đảm bảo thoát hết room trước khi join room
+//     socket.rooms.forEach((roomId) => {
+//       socket.leave(roomId);
+//     });
+//     socket.join(roomId);
+//   });
 
-  // Nến lấy danh sách message khởi tạo ban đầu bằng API
-  // Không nên dùng bằng socket như phía dưới
-  socket.on("get-list-message", async (data) => {
-    console.log("get-list-message", { data });
-    const { user_id_sender, user_id_recipient } = data;
-    const chats = await prisma.chats.findMany({
-      where: {
-        OR: [
-          // Lấy tin nhắn của mình
-          {
-            user_id_recipient: user_id_recipient,
-            user_id_sender: user_id_sender,
-          },
-          // Lấy tin nhắn của đối phương
-          {
-            user_id_sender: user_id_sender,
-            user_id_recipient: user_id_recipient,
-          },
-        ],
-      },
-    });
-    socket.emit("get-list-message", chats);
-  });
-});
+//   socket.on("send-message", async (data) => {
+//     console.log({ data });
+//     const { message, user_id_sender, user_id_recipient } = data;
+//     const roomId = [user_id_sender, user_id_recipient]
+//       .sort((a, b) => a - b)
+//       .join("_");
+//     io.to(roomId).emit("receive-message", data);
+//     await prisma.chats.create({
+//       data: {
+//         message: message,
+//         user_id_sender: user_id_sender,
+//         user_id_recipient: user_id_recipient,
+//       },
+//     });
+//   });
+
+//   // Nến lấy danh sách message khởi tạo ban đầu bằng API
+//   // Không nên dùng bằng socket như phía dưới
+//   socket.on("get-list-message", async (data) => {
+//     console.log("get-list-message", { data });
+//     const { user_id_sender, user_id_recipient } = data;
+//     const chats = await prisma.chats.findMany({
+//       where: {
+//         OR: [
+//           // Lấy tin nhắn của mình
+//           {
+//             user_id_recipient: user_id_recipient,
+//             user_id_sender: user_id_sender,
+//           },
+//           // Lấy tin nhắn của đối phương
+//           {
+//             user_id_sender: user_id_sender,
+//             user_id_recipient: user_id_recipient,
+//           },
+//         ],
+//       },
+//     });
+//     socket.emit("get-list-message", chats);
+//   });
+// });
 
 // app.use(
 //   (req, res, next) => {
